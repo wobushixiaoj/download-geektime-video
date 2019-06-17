@@ -9,9 +9,13 @@
 ```
 ### 使用
 
-#### 1.进入项目目录，视频下载地址即 download-geektime-video.go 所在的目录
+#### 1. clone项目
+https://github.com/wobushixiaoj/download-geektime-video.git
 
-#### 2.编辑配置文件
+#### 2. 进入项目目录，视频下载地址即 download-geektime-video.go 所在的目录
+cd download-geektime-video/
+
+#### 3. 编辑配置文件
 ```
 vim config.json
 ```
@@ -35,7 +39,7 @@ https://time.geekbang.org/course/detail/168-68568
 ##### cookie获取
 拿到 .time.geekbang.org 下面的4个cookie：_ga，_gid，GCID，GCESS
 
-#### 3.执行下载
+#### 4.执行下载
 ```
 go run download-geektime-video.go
 ```

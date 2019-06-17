@@ -72,8 +72,6 @@ func getArticles() []Article {
 		panic(jsonErr)
 	}
 
-	fmt.Println(articlesMap)
-
 	var videos = articlesMap["data"].(map[string]interface{})["list"].([]interface{})
 
 	var articles []Article
