@@ -10,10 +10,14 @@
 ### 使用
 
 #### 1. clone项目
-https://github.com/wobushixiaoj/download-geektime-video.git
+```
+git clone https://github.com/wobushixiaoj/download-geektime-video.git
+```
 
 #### 2. 进入项目目录，视频下载地址即 download-geektime-video.go 所在的目录
+```
 cd download-geektime-video/
+```
 
 #### 3. 编辑配置文件
 ```
