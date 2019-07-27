@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -27,6 +28,7 @@ var cid string
 
 var hostname = "https://time.geekbang.org"
 var cookie = "_ga=%s; _gid=%s; GCID=%s; GCESS=%s"
+var article_type string
 
 func main() {
 
@@ -36,7 +38,11 @@ func main() {
 
 	articlesLen := len(articles)
 	for i := 0; i < articlesLen; i++ {
-		download(articles[i])
+		if article_type == "video" {
+			downloadVideo(articles[i])
+		} else {
+			downloadText(articles[i])
+		}
 	}
 
 }
@@ -49,13 +55,7 @@ func getArticles() []Article {
 
 	header := req.Header
 
-	header.Set("Origin", hostname)
-	header.Set("Referer", hostname)
-	header.Set("User-Agent", randomUserAgent())
-	header.Set("X-Real-IP", randomIpAddress())
-	header.Set("Cookie", fmt.Sprintf(cookie, _ga, _gid, GCID, GCESS))
-	header.Set("Connection", "keep-alive")
-	header.Set("Content-Type", "application/json")
+	buildHeader(header)
 
 	response, _ := client.Do(req)
 
@@ -76,15 +76,29 @@ func getArticles() []Article {
 
 	var articles []Article
 	for _, video := range videos {
-		var url = video.(map[string]interface{})["video_media_map"].(map[string]interface{})["hd"].(map[string]interface{})["url"].(string)
+		var url = ""
+		if video.(map[string]interface{})["video_media_map"] != nil {
+			url = video.(map[string]interface{})["video_media_map"].(map[string]interface{})["hd"].(map[string]interface{})["url"].(string)
+		}
 		var title = strings.ReplaceAll(strings.ReplaceAll(video.(map[string]interface{})["article_title"].(string), " ", ""), "|", "")
-		article := Article{url, title}
+		var id = int(video.(map[string]interface{})["id"].(float64))
+		article := Article{url, title, id}
 		articles = append(articles, article)
 	}
 	return articles
 }
 
-func download(article Article) {
+func buildHeader(header http.Header) {
+	header.Set("Origin", hostname)
+	header.Set("Referer", hostname)
+	header.Set("User-Agent", randomUserAgent())
+	header.Set("X-Real-IP", randomIpAddress())
+	header.Set("Cookie", fmt.Sprintf(cookie, _ga, _gid, GCID, GCESS))
+	header.Set("Connection", "keep-alive")
+	header.Set("Content-Type", "application/json")
+}
+
+func downloadVideo(article Article) {
 	path, _ := os.Getwd()
 	articleSavePath := path + "/" + article.title + ".mp4"
 	file, _ := os.Stat(articleSavePath) //os.Stat获取文件信息
@@ -93,7 +107,7 @@ func download(article Article) {
 		return
 	}
 
-	fmt.Println("start download : ", article.title)
+	fmt.Println("start downloadVideo : ", article.title)
 	cmd := exec.Command("ffmpeg", "-i", article.url, "-c", "copy", "-bsf:a", "aac_adtstoasc", articleSavePath)
 
 	fmt.Println(cmd.Args)
@@ -101,10 +115,53 @@ func download(article Article) {
 	cmd.Stdout = buf
 	if err := cmd.Run(); err != nil {
 		os.Remove(articleSavePath)
-		panic("download failed: " + err.Error() + ", " + article.url + ", " + article.title)
+		panic("downloadVideo failed: " + err.Error() + ", " + article.url + ", " + article.title)
 	}
 
-	fmt.Println("end download : ", article.title)
+	fmt.Println("end downloadVideo : ", article.title)
+}
+
+func downloadText(article Article) {
+	path, _ := os.Getwd()
+	articleSavePath := path + "/" + article.title + ".html"
+	file, _ := os.Stat(articleSavePath) //os.Stat获取文件信息
+	if file != nil {
+		fmt.Println("file exists : " + article.title)
+		return
+	}
+
+	fmt.Println("start downloadText : ", article.title)
+
+	client := http.Client{}
+	//{"id":"93915","include_neighbors":true}
+	reqBody := fmt.Sprintf("{\"id\":\"%s\",\"include_neighbors\":true}", strconv.Itoa(article.id))
+	req, _ := http.NewRequest(http.MethodPost, hostname+"/serv/v1/article", strings.NewReader(reqBody))
+	header := req.Header
+	buildHeader(header)
+	response, _ := client.Do(req)
+	dataByte, _ := ioutil.ReadAll(response.Body)
+
+	dataStr := string(dataByte)
+	if len(dataStr) == 0 {
+		panic("cookie is not valid! please check your config")
+	}
+
+	articlesMap := make(map[string]interface{})
+	jsonErr := json.Unmarshal(dataByte, &articlesMap)
+	if jsonErr != nil {
+		panic(jsonErr)
+	}
+
+	var articleContent = articlesMap["data"].(map[string]interface{})["article_content"].(string)
+	f, err := os.Create(articleSavePath)
+	if f != nil {
+		defer f.Close()
+		if err != nil {
+			fmt.Println(err.Error())
+		} else {
+			_, err = f.Write([]byte(articleContent))
+		}
+	}
 }
 
 var userAgentList = [13]string{
@@ -171,9 +228,15 @@ func loadConfig() {
 	if cid == "" {
 		panic("config['cid'] can not be null")
 	}
+
+	article_type = config["article_type"]
+	if article_type == "" {
+		panic("config['article_type'] can not be null")
+	}
 }
 
 type Article struct {
 	url   string
 	title string
+	id    int
 }
