@@ -1,6 +1,9 @@
 # download-geektime-video
 此工具为下载极客时间已购课程方便离线观看
 参考：https://github.com/domliang/geektime-dl
+
+注意：目前video下载已经失效。
+原因：极客时间用了aliplayer组件并进行了加密，不再直接暴露视频地址。所以暂时还没好办法进行解析。
 ### 环境要求
 ```
 （1）golang环境
